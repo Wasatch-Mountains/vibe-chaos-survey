@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<!--
+  =============================================================================
+  INDEX.HTML — structure of the “vibe chaos” survey (tutorial)
+  =============================================================================
+
+  BIG PICTURE
+  -----------
+  1. The page is plain HTML: no React/Vue required. Each question uses normal
+     elements (slider, buttons, textarea) with stable `id` attributes.
+  2. `style.css` makes it look like a dark neon “vibe” UI.
+  3. `config.js` loads first and defines `window.VIBE_SURVEY_CONFIG`.
+  4. `script.js` runs after the DOM exists, finds elements by `id`, and wires
+     up behavior + the POST to your Render proxy.
+
+  BUILDING YOUR OWN FRONTEND
+  --------------------------
+  - Copy the pattern: config → HTML with ids → JS that reads values and POSTs
+    the JSON shape your proxy expects.
+  - Keep **question keys** in the payload aligned with Qualtrics question IDs
+    (here: QID1, QID2, QID3_TEXT) unless your proxy maps different names.
+
+  ACCESSIBILITY NOTES
+  -------------------
+  - Headings label each block; `aria-labelledby` ties sections to those titles.
+  - The choice group uses `role="radiogroup"` / `role="radio"` even though we
+    use `<button>`s, because the UX is “pick one” (script updates `aria-checked`).
+  - The toast uses `role="status"` and `aria-live="polite"` so screen readers
+    can announce success without stealing focus.
+-->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Lets mobile browsers use the real device width (responsive layout). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vibe Chaos Survey</title>
+    <!-- Optional: preconnect tells the browser to open connections early (faster fonts). -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <!-- Decorative film grain; aria-hidden so assistive tech ignores it. -->
+    <div class="noise" aria-hidden="true"></div>
+
+    <main class="shell">
+      <header class="hero">
+        <p class="eyebrow">high-friction feedback</p>
+        <h1>Vibe Chaos Survey</h1>
+        <p class="lede">
+          Three questions. One proxy. Zero chill.
+        </p>
+      </header>
+
+      <!--
+        Real <form> + type="submit" button: script listens for `submit` and calls
+        preventDefault so the page does not reload; keyboard (Tab → Enter/Space)
+        uses the same path as a mouse click. `novalidate` skips browser validation UI.
+      -->
+      <form class="survey" id="survey-form" novalidate>
+        <!-- ========== Question 1: NPS-style slider (maps to Qualtrics QID1) ========== -->
+        <section class="card" aria-labelledby="q1-label">
+          <h2 id="q1-label" class="q-title">
+            <span class="q-tag">QID1</span> How likely are you to recommend this vibe?
+          </h2>
+          <p class="q-hint">
+            Slide freely along the arc (5 crowns the hill). Physics is petty: anything below 5 falls to 0, anything above 5 rolls to 10 —
+            gravity will make you more extreme. It waits until you’ve stopped shoving the ball.
+          </p>
+          <div class="nps">
+            <output class="nps-value" id="qid1-output" for="qid1-slider">5</output>
+            <div class="nps-arc-field">
+              <svg
+                id="nps-arc-svg"
+                class="nps-arc"
+                viewBox="0 -12 320 158"
+                fill="none"
+                xmlns="http://www.w3.org/2000/svg"
+                aria-hidden="true"
+              >
+                <defs>
+                  <linearGradient id="nps-rail-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#2ee6ff" stop-opacity="0.85" />
+                    <stop offset="50%" stop-color="#c44bff" stop-opacity="0.95" />
+                    <stop offset="100%" stop-color="#2ee6ff" stop-opacity="0.85" />
+                  </linearGradient>
+                  <linearGradient id="nps-thumb-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#2ee6ff" />
+                    <stop offset="100%" stop-color="#c44bff" />
+                  </linearGradient>
+                  <filter id="nps-glow" x="-40%" y="-40%" width="180%" height="180%">
+                    <feGaussianBlur stdDeviation="2.5" result="b" />
+                    <feMerge>
+                      <feMergeNode in="b" />
+                      <feMergeNode in="SourceGraphic" />
+                    </feMerge>
+                  </filter>
+                </defs>
+                <!-- Upper semicircle: 0 left base, 5 top, 10 right base (center 160,130 r=120) -->
+                <path
+                  id="nps-rail-path"
+                  d="M 40 130 A 120 120 0 0 1 280 130"
+                  stroke="url(#nps-rail-grad)"
+                  stroke-width="7"
+                  stroke-linecap="round"
+                  filter="url(#nps-glow)"
+                />
+                <g id="nps-ticks"></g>
+                <circle
+                  id="nps-thumb"
+                  r="11"
+                  fill="url(#nps-thumb-grad)"
+                  stroke="#0a0a0f"
+                  stroke-width="2"
+                  filter="url(#nps-glow)"
+                  style="cursor: grab"
+                />
+              </svg>
+              <!-- Kept for keyboard / SR / form value; synced with arc thumb in script.js -->
+              <input
+                type="range"
+                id="qid1-slider"
+                class="nps-slider-sr"
+                name="QID1"
+                min="0"
+                max="10"
+                step="0.01"
+                value="5"
+                aria-valuemin="0"
+                aria-valuemax="10"
+                aria-valuenow="5"
+                aria-label="Score from 0 to 10, 5 at the top of the arc"
+              />
+            </div>
+          </div>
+        </section>
+
+        <!-- ========== Question 2: three choices (maps to Qualtrics QID2) ========== -->
+        <section class="card" aria-labelledby="q2-label">
+          <h2 id="q2-label" class="q-title">
+            <span class="q-tag">QID2</span> Pick a quantum outcome
+          </h2>
+          <p class="q-hint">Buttons reconfigure when you breathe near them.</p>
+          <!--
+            data-choice: small custom data attributes are a handy way to store
+            the value we’ll send as QID2 without parsing button text.
+          -->
+          <div class="quantum-row" id="quantum-row" role="radiogroup" aria-labelledby="q2-label">
+            <button type="button" class="quantum-btn quantum-btn--red" data-choice="1" role="radio" aria-checked="false">
+              Red
+            </button>
+            <button type="button" class="quantum-btn quantum-btn--green" data-choice="2" role="radio" aria-checked="false">
+              Green
+            </button>
+            <button type="button" class="quantum-btn quantum-btn--blue" data-choice="3" role="radio" aria-checked="false">
+              Blue
+            </button>
+          </div>
+          <!-- Hidden field holds the selected choice for easy reading in script.js -->
+          <input type="hidden" id="qid2-value" name="QID2" value="" />
+        </section>
+
+        <!-- ========== Question 3: free text (maps to Qualtrics QID3_TEXT) ========== -->
+        <section class="card" aria-labelledby="q3-label">
+          <h2 id="q3-label" class="q-title">
+            <span class="q-tag">QID3_TEXT</span> Unfiltered signal
+          </h2>
+          <p class="q-hint">Each keystroke nudges the field’s wavelength.</p>
+          <textarea
+            id="qid3-text"
+            name="QID3_TEXT"
+            class="vibe-textarea"
+            rows="5"
+            placeholder="Type into the chromatic void…"
+            spellcheck="true"
+          ></textarea>
+        </section>
+
+        <div class="form-actions">
+          <button type="submit" id="survey-submit" class="submit-btn">Submit</button>
+        </div>
+        <p id="submit-feedback" class="submit-feedback" role="status" aria-live="polite" hidden></p>
+      </form>
+    </main>
+
+    <!--
+      Toast: starts `hidden`; script adds a class to animate it in/out.
+      We keep `display: block` in CSS while hidden so CSS transitions still work
+      (see style.css `.toast[hidden]`).
+    -->
+    <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+      Data Transmitted
+    </div>
+
+    <!-- Order matters: config before logic that depends on it. -->
+    <script src="config.js"></script>
+    <script src="script.js"></script>
+  </body>
+</html>

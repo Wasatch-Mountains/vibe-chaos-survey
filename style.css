@@ -329,8 +329,8 @@ body {
 
 /*
  * ----- QID3: textarea -----
- * Base HSL matches the JS starting hue (~265). script.js overwrites
- * background-color inline on each input event for the “chromatic drift” effect.
+ * Base HSL when empty. sentiment.js tints red/green; 2+ lexicon hits on the
+ * winning side boost saturation; 3+ add spark animations (.vibe-textarea--sent-spark-*).
  */
 .vibe-textarea {
   width: 100%;
@@ -357,6 +357,69 @@ body {
   outline: none;
   border-color: var(--neon-cyan);
   box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--neon-cyan), 0 0 24px var(--glow-cyan);
+}
+
+/* QID3: three+ sentiment hits on the winning side — pulsing “spark” (filter avoids fighting focus box-shadow) */
+.vibe-textarea.vibe-textarea--sent-spark-pos {
+  animation: vibe-spark-pos 0.95s ease-in-out infinite;
+}
+
+.vibe-textarea.vibe-textarea--sent-spark-neg {
+  animation: vibe-spark-neg 0.95s ease-in-out infinite;
+}
+
+@keyframes vibe-spark-pos {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px rgba(0, 255, 130, 0.35)) drop-shadow(0 0 14px rgba(50, 255, 160, 0.2));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(80, 255, 170, 0.85)) drop-shadow(0 0 36px rgba(120, 255, 210, 0.45))
+      drop-shadow(0 0 56px rgba(180, 255, 230, 0.2));
+  }
+}
+
+@keyframes vibe-spark-neg {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 6px rgba(255, 60, 90, 0.4)) drop-shadow(0 0 14px rgba(255, 100, 80, 0.22));
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(255, 80, 100, 0.9)) drop-shadow(0 0 34px rgba(255, 140, 120, 0.5))
+      drop-shadow(0 0 52px rgba(255, 200, 160, 0.18));
+  }
+}
+
+/* ----- Post-submit thanks (replaces #survey-flow on success) ----- */
+.survey-thanks {
+  max-width: 38rem;
+  margin: 0 auto;
+}
+
+.survey-thanks__title {
+  margin: 0 0 0.75rem;
+  font-size: 1.45rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  background: linear-gradient(105deg, var(--text) 0%, var(--neon-purple) 50%, var(--neon-cyan) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.survey-thanks__msg {
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.survey-thanks__msg .thanks-muted {
+  display: block;
+  margin-top: 1rem;
+  font-size: 0.95rem;
+  color: var(--muted);
+  font-style: italic;
 }
 
 /* ----- Form submit (ordinary type="submit" button) ----- */

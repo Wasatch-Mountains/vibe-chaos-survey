@@ -10,8 +10,8 @@
      elements (slider, buttons, textarea) with stable `id` attributes.
   2. `style.css` makes it look like a dark neon “vibe” UI.
   3. `config.js` loads first and defines `window.VIBE_SURVEY_CONFIG`.
-  4. `script.js` runs after the DOM exists, finds elements by `id`, and wires
-     up behavior + the POST to your Render proxy.
+  4. `sentiment.js` defines `window.vibeSentiment` for the feedback field tint.
+  5. `script.js` runs after the DOM exists, wires behavior + the POST to your proxy.
 
   BUILDING YOUR OWN FRONTEND
   --------------------------
@@ -48,20 +48,21 @@
     <div class="noise" aria-hidden="true"></div>
 
     <main class="shell">
-      <header class="hero">
-        <p class="eyebrow">high-friction feedback</p>
-        <h1>Vibe Chaos Survey</h1>
-        <p class="lede">
-          Three questions. One proxy. Zero chill.
-        </p>
-      </header>
+      <div id="survey-flow">
+        <header class="hero">
+          <p class="eyebrow">high-friction feedback</p>
+          <h1>Vibe Chaos Survey</h1>
+          <p class="lede">
+            Three questions. One proxy. Zero chill.
+          </p>
+        </header>
 
-      <!--
-        Real <form> + type="submit" button: script listens for `submit` and calls
-        preventDefault so the page does not reload; keyboard (Tab → Enter/Space)
-        uses the same path as a mouse click. `novalidate` skips browser validation UI.
-      -->
-      <form class="survey" id="survey-form" novalidate>
+        <!--
+          Real <form> + type="submit" button: script listens for `submit` and calls
+          preventDefault so the page does not reload; keyboard (Tab → Enter/Space)
+          uses the same path as a mouse click. `novalidate` skips browser validation UI.
+        -->
+        <form class="survey" id="survey-form" novalidate>
         <!-- ========== Question 1: NPS-style slider (maps to Qualtrics QID1) ========== -->
         <section class="card" aria-labelledby="q1-label">
           <h2 id="q1-label" class="q-title">
@@ -169,13 +170,15 @@
           <h2 id="q3-label" class="q-title">
             <span class="q-tag">QID3_TEXT</span> Unfiltered signal
           </h2>
-          <p class="q-hint">Each keystroke nudges the field’s wavelength.</p>
+          <p class="q-hint">
+            Mood words tint the field (red bleak / green upbeat). Pile on two on the winning side for extra punch; three sets off sparks—all local, no API.
+          </p>
           <textarea
             id="qid3-text"
             name="QID3_TEXT"
             class="vibe-textarea"
             rows="5"
-            placeholder="Type into the chromatic void…"
+            placeholder="Pour your heart out—the void reads the vibe…"
             spellcheck="true"
           ></textarea>
         </section>
@@ -184,7 +187,14 @@
           <button type="submit" id="survey-submit" class="submit-btn">Submit</button>
         </div>
         <p id="submit-feedback" class="submit-feedback" role="status" aria-live="polite" hidden></p>
-      </form>
+        </form>
+      </div>
+
+      <section id="survey-thanks" class="card survey-thanks" hidden tabindex="-1" aria-labelledby="survey-thanks-title">
+        <p class="eyebrow">transmission complete</p>
+        <h2 id="survey-thanks-title" class="survey-thanks__title">Thank you</h2>
+        <p id="survey-thanks-msg" class="survey-thanks__msg"></p>
+      </section>
     </main>
 
     <!--
@@ -196,8 +206,9 @@
       Data Transmitted
     </div>
 
-    <!-- Order matters: config before logic that depends on it. -->
+    <!-- Order: config → sentiment (window.vibeSentiment) → main survey logic -->
     <script src="config.js"></script>
+    <script src="sentiment.js"></script>
     <script src="script.js"></script>
   </body>
 </html>

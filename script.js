@@ -5,7 +5,7 @@
  *
  * PREREQUISITES
  * -------------
- * - index.html loads **config.js before** this file (so `VIBE_SURVEY_CONFIG` exists).
+ * - index.html loads **config.js** and **sentiment.js** before this file.
  * - Every element we touch has the `id` shown in index.html.
  *
  * THE DATA PIPELINE (end-to-end)
@@ -46,6 +46,9 @@
     const submitBtn = document.getElementById('survey-submit');
     const toast = document.getElementById('toast');
     const submitFeedback = document.getElementById('submit-feedback');
+    const surveyFlow = document.getElementById('survey-flow');
+    const surveyThanks = document.getElementById('survey-thanks');
+    const thanksMsg = document.getElementById('survey-thanks-msg');
 
     if (
       !slider ||
@@ -61,12 +64,10 @@
       console.error('Vibe survey: a required element is missing from the page (check ids in index.html).');
       return;
     }
-    if (!surveyForm || !submitBtn) {
-      console.error('Vibe survey: form or #survey-submit button missing.');
+    if (!surveyForm || !submitBtn || !surveyFlow || !surveyThanks || !thanksMsg) {
+      console.error('Vibe survey: form, submit button, or thanks panel missing.');
       return;
     }
-
-    let textareaHue = 265;
 
     function setSubmitFeedback(message, isError) {
       if (!submitFeedback) return;
@@ -315,29 +316,107 @@
     });
 
     /* =========================================================================
-     * QID3_TEXT — textarea background drifts on each content change
+     * QID3_TEXT — sentiment tint via sentiment.js (red / green vs neutral purple)
      * ========================================================================= */
-    function shiftTextareaBackground() {
-      textareaHue = (textareaHue + (Math.random() * 24 - 8) + 360) % 360;
-      const s = 26 + Math.random() * 10;
-      const l = 12 + Math.random() * 6;
-      textarea.style.backgroundColor = `hsl(${textareaHue.toFixed(1)}, ${s.toFixed(1)}%, ${l.toFixed(1)}%)`;
+    if (!window.vibeSentiment) {
+      console.error('Load sentiment.js before script.js (window.vibeSentiment missing).');
+    } else {
+      textarea.addEventListener('input', () => {
+        window.vibeSentiment.applyToTextarea(textarea);
+      });
     }
-    textarea.addEventListener('input', shiftTextareaBackground);
 
     /* =========================================================================
-     * Submit → build payload → fetch(proxy) → log + toast
+     * Submit → build payload → fetch(proxy) → thanks view (text mood vs NPS)
      * ========================================================================= */
-    function showToast() {
-      toast.hidden = false;
-      toast.classList.add('is-visible');
-      window.clearTimeout(showToast._t);
-      showToast._t = window.setTimeout(() => {
-        toast.classList.remove('is-visible');
-        window.setTimeout(() => {
-          toast.hidden = true;
-        }, 400);
-      }, 2800);
+
+    /** NPS buckets: classic promoter / passive / detractor. */
+    function moodFromNps(npsRounded) {
+      if (npsRounded <= 6) return 'negative';
+      if (npsRounded <= 8) return 'neutral';
+      return 'positive';
+    }
+
+    function moodFromTextAnalysis(analysis) {
+      const s = analysis.score;
+      if (s > 0.05) return 'positive';
+      if (s < -0.05) return 'negative';
+      return 'neutral';
+    }
+
+    function textMoodLabel(m) {
+      if (m === 'positive') return 'positive';
+      if (m === 'negative') return 'negative';
+      return 'neutral or mixed';
+    }
+
+    function getTextAnalysisForThanks() {
+      if (!window.vibeSentiment) return { score: 0, pos: 0, neg: 0 };
+      const toks = window.vibeSentiment.tokens(textarea.value);
+      return window.vibeSentiment.analyzeTokens(toks);
+    }
+
+    /**
+     * Thank-you copy from open text + rounded NPS. If lexicon mood and NPS bucket disagree,
+     * append a gently confused aside (no user HTML — only our strings).
+     */
+    function buildThankYouCopy(npsRounded, analysis) {
+      const textMood = moodFromTextAnalysis(analysis);
+      const npsMood = moodFromNps(npsRounded);
+      const label = textMoodLabel(textMood);
+      const mainOpen = `Thank you for submitting this ${label} feedback.`;
+
+      if (textMood === npsMood) {
+        return {
+          main:
+            `${mainOpen} Your words and your score mostly pointed the same way—refreshing when reality lines up.`,
+          confused: null,
+        };
+      }
+
+      let confused;
+      if (textMood === 'positive') {
+        confused =
+          npsMood === 'negative'
+            ? 'We’re slightly confused: the write-up sounded warm, but the score looked pretty frosty. We logged it anyway—people are layered.'
+            : 'We’re slightly confused: upbeat prose, yet the score sat in the mushy middle. Filed with a polite eyebrow raise—thank you.';
+      } else if (textMood === 'negative') {
+        confused =
+          npsMood === 'positive'
+            ? 'We’re slightly confused: the text had some bite, while the NPS was almost suspiciously sunny. Stored with a shrug—thanks for the plot twist.'
+            : 'We’re slightly confused: salty words paired with a lukewarm number. Both corners saved; we’re not here to pick a winner.';
+      } else {
+        confused =
+          npsMood === 'positive'
+            ? 'We’re slightly confused: the wording read calm or mixed, but the score was ready to shout your praises. Archaeologists will love this.'
+            : npsMood === 'negative'
+              ? 'We’re slightly confused: diplomatic tone, chilly digit. We kept both and we’re not taking sides.'
+              : 'We’re slightly confused: everything insisted on sitting in the middle. Respect.';
+      }
+
+      return { main: mainOpen, confused };
+    }
+
+    function showThanksAfterSuccess() {
+      const npsR = Math.round(Number(slider.value));
+      const analysis = getTextAnalysisForThanks();
+      const copy = buildThankYouCopy(npsR, analysis);
+
+      thanksMsg.textContent = '';
+      const lead = document.createElement('span');
+      lead.textContent = copy.main;
+      thanksMsg.appendChild(lead);
+      if (copy.confused) {
+        const aside = document.createElement('span');
+        aside.className = 'thanks-muted';
+        aside.textContent = copy.confused;
+        thanksMsg.appendChild(aside);
+      }
+
+      surveyFlow.hidden = true;
+      surveyThanks.hidden = false;
+      surveyThanks.focus();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
     let submitInFlight = false;
@@ -397,7 +476,7 @@
         }
 
         setSubmitFeedback('');
-        showToast();
+        showThanksAfterSuccess();
       } catch (err) {
         console.error('Network or fetch error:', err);
         setSubmitFeedback('Network or CORS error — check the console.', true);
